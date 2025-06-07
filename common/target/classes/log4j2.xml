@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="30">
+    <Properties>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Property>
+        <Property name="LOG_DIR">logs</Property>
+    </Properties>
+
+    <Appenders>
+        <!-- 控制台输出 -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <ThresholdFilter level="INFO" onMatch="ACCEPT" onMismatch="DENY"/>
+        </Console>
+
+        <!-- 系统日志文件 -->
+        <RollingFile name="SystemFile" fileName="${LOG_DIR}/system.log"
+                     filePattern="${LOG_DIR}/system.%d{yyyy-MM-dd}.%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+
+        <!-- 性能监控日志文件 -->
+        <RollingFile name="PerformanceFile" fileName="${LOG_DIR}/performance.log"
+                     filePattern="${LOG_DIR}/performance.%d{yyyy-MM-dd}.%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <!-- 业务日志文件 -->
+        <RollingFile name="BusinessFile" fileName="${LOG_DIR}/business.log"
+                     filePattern="${LOG_DIR}/business.%d{yyyy-MM-dd}.%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <!-- 错误日志文件 -->
+        <RollingFile name="ErrorFile" fileName="${LOG_DIR}/error.log"
+                     filePattern="${LOG_DIR}/error.%d{yyyy-MM-dd}.%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <!-- 异步Appender，提高性能 -->
+        <AsyncLogger name="SYSTEM" level="INFO" additivity="false">
+            <AppenderRef ref="SystemFile"/>
+            <AppenderRef ref="Console"/>
+        </AsyncLogger>
+
+        <AsyncLogger name="PERFORMANCE" level="INFO" additivity="false">
+            <AppenderRef ref="PerformanceFile"/>
+        </AsyncLogger>
+
+        <AsyncLogger name="BUSINESS" level="INFO" additivity="false">
+            <AppenderRef ref="BusinessFile"/>
+            <AppenderRef ref="Console"/>
+        </AsyncLogger>
+    </Appenders>
+
+    <Loggers>
+        <!-- 系统日志 -->
+        <Logger name="SYSTEM" level="INFO" additivity="false">
+            <AppenderRef ref="SystemFile"/>
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="ErrorFile"/>
+        </Logger>
+
+        <!-- 性能监控日志 -->
+        <Logger name="PERFORMANCE" level="INFO" additivity="false">
+            <AppenderRef ref="PerformanceFile"/>
+        </Logger>
+
+        <!-- 业务日志 -->
+        <Logger name="BUSINESS" level="INFO" additivity="false">
+            <AppenderRef ref="BusinessFile"/>
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="ErrorFile"/>
+        </Logger>
+
+        <!-- 框架日志级别控制 -->
+        <Logger name="org.springframework" level="WARN"/>
+        <Logger name="io.netty" level="WARN"/>
+        <Logger name="org.mongodb" level="WARN"/>
+        <Logger name="redis.clients" level="WARN"/>
+
+        <!-- 根日志配置 -->
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="SystemFile"/>
+            <AppenderRef ref="ErrorFile"/>
+        </Root>
+    </Loggers>
+</Configuration>

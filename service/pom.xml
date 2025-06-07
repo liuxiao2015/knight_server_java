@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.knight.server</groupId>
+        <artifactId>knight-server-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>knight-server-service</artifactId>
+    <packaging>jar</packaging>
+    <name>Knight Server - Service Module</name>
+    <description>Business services including gateway, logic, chat, and payment modules</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.knight.server</groupId>
+            <artifactId>knight-server-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.knight.server</groupId>
+            <artifactId>knight-server-frame</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>
