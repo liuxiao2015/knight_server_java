@@ -32,12 +32,15 @@
     </properties>
 
     <modules>
-        <module>game-server/common</module>
-        <module>game-server/frame</module>
-        <module>game-server/service</module>
-        <module>game-server/launcher</module>
-        <module>game-server/admin</module>
-        <module>game-server/test</module>
+        <module>game-common</module>
+        <module>game-frame</module>
+        <module>game-service-api</module>
+        <module>game-gateway</module>
+        <module>game-logic</module>
+        <module>game-chat</module>
+        <module>game-payment</module>
+        <module>game-admin</module>
+        <module>game-launcher</module>
     </modules>
 
     <dependencyManagement>
