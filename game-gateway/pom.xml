@@ -64,6 +64,12 @@
             <version>4.0.15</version>
         </dependency>
         
+        <!-- Spring Boot Data Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        
         <!-- Redis for session storage -->
         <dependency>
             <groupId>redis.clients</groupId>
