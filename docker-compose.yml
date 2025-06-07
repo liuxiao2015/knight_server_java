@@ -1,0 +1,243 @@
+# Knight Server Java - Docker Compose 配置
+# 功能说明：一键部署完整的游戏服务器集群
+# 技术选型：Docker Compose + 微服务架构
+# @author lx
+
+version: '3.8'
+
+services:
+  # Redis缓存服务
+  redis:
+    image: redis:7.0-alpine
+    container_name: knight-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - knight-network
+
+  # MongoDB数据库
+  mongodb:
+    image: mongo:7.0
+    container_name: knight-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: knight123
+      MONGO_INITDB_DATABASE: knight_game
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongodb/init.js:/docker-entrypoint-initdb.d/init.js
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ismaster')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - knight-network
+
+  # 网关服务
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/gateway/Dockerfile
+    container_name: knight-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "8090:8090"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms2g -Xmx4g -XX:+UseG1GC
+    volumes:
+      - gateway_logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - knight-network
+
+  # 逻辑服务（集群部署）
+  logic1:
+    build:
+      context: .
+      dockerfile: docker/logic/Dockerfile
+    container_name: knight-logic1
+    restart: unless-stopped
+    ports:
+      - "9001:9001"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms4g -Xmx8g -XX:+UseG1GC
+      - SERVER_NODE_ID=logic1
+    volumes:
+      - logic1_logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9001/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - knight-network
+
+  logic2:
+    build:
+      context: .
+      dockerfile: docker/logic/Dockerfile
+    container_name: knight-logic2
+    restart: unless-stopped
+    ports:
+      - "9002:9001"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms4g -Xmx8g -XX:+UseG1GC
+      - SERVER_NODE_ID=logic2
+    volumes:
+      - logic2_logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9001/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - knight-network
+
+  # 聊天服务
+  chat:
+    build:
+      context: .
+      dockerfile: docker/chat/Dockerfile
+    container_name: knight-chat
+    restart: unless-stopped
+    ports:
+      - "9101:9101"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms1g -Xmx2g -XX:+UseG1GC
+    volumes:
+      - chat_logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9101/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - knight-network
+
+  # 支付服务
+  payment:
+    build:
+      context: .
+      dockerfile: docker/payment/Dockerfile
+    container_name: knight-payment
+    restart: unless-stopped
+    ports:
+      - "9201:9201"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_OPTS=-Xms1g -Xmx2g -XX:+UseG1GC
+    volumes:
+      - payment_logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9201/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - knight-network
+
+  # 监控服务 - Prometheus
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: knight-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - knight-network
+
+  # 监控可视化 - Grafana
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: knight-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=knight123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - knight-network
+
+volumes:
+  redis_data:
+  mongodb_data:
+  gateway_logs:
+  logic1_logs:
+  logic2_logs:
+  chat_logs:
+  payment_logs:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  knight-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
