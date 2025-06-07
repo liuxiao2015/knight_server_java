@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knight-server-gateway
+  labels:
+    app: knight-server
+    component: gateway
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: knight-server
+      component: gateway
+  template:
+    metadata:
+      labels:
+        app: knight-server
+        component: gateway
+    spec:
+      containers:
+      - name: gateway
+        image: knight-server:latest
+        ports:
+        - containerPort: 9001
+          name: gateway
+        - containerPort: 8080
+          name: management
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms1g -Xmx4g -XX:+UseG1GC"
+        - name: gateway.host
+          value: "0.0.0.0"
+        - name: gateway.port
+          value: "9001"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+        - name: config
+          mountPath: /app/config
+      volumes:
+      - name: logs
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: knight-server-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: knight-server-gateway-service
+spec:
+  selector:
+    app: knight-server
+    component: gateway
+  ports:
+  - name: gateway
+    port: 9001
+    targetPort: 9001
+  - name: management
+    port: 8080
+    targetPort: 8080
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: knight-server-config
+data:
+  application.yml: |
+    server:
+      port: 8080
+    
+    logging:
+      level:
+        com.knight.server: INFO
+        
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: health,info,metrics,prometheus
+      endpoint:
+        health:
+          show-details: always
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: knight-server-gateway-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: knight-server-gateway
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
