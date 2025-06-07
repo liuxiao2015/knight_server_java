@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Properties>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Property>
+        <Property name="LOG_PATH">logs</Property>
+    </Properties>
+
+    <Appenders>
+        <!-- 控制台输出 -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+
+        <!-- 异步文件输出 - 所有日志 -->
+        <RollingFile name="FileAppender" fileName="${LOG_PATH}/knight-server.log"
+                     filePattern="${LOG_PATH}/knight-server-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <!-- 性能监控日志 -->
+        <RollingFile name="PerformanceAppender" fileName="${LOG_PATH}/performance.log"
+                     filePattern="${LOG_PATH}/performance-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="50MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+
+        <!-- 业务日志 -->
+        <RollingFile name="BusinessAppender" fileName="${LOG_PATH}/business.log"
+                     filePattern="${LOG_PATH}/business-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="50MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+
+        <!-- 安全日志 -->
+        <RollingFile name="SecurityAppender" fileName="${LOG_PATH}/security.log"
+                     filePattern="${LOG_PATH}/security-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="50MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <!-- 异步Appender -->
+        <AsyncAppender name="AsyncFile">
+            <AppenderRef ref="FileAppender"/>
+            <BufferSize>8192</BufferSize>
+            <IncludeLocation>false</IncludeLocation>
+        </AsyncAppender>
+    </Appenders>
+
+    <Loggers>
+        <!-- 性能监控日志 -->
+        <Logger name="PERFORMANCE" level="INFO" additivity="false">
+            <AppenderRef ref="PerformanceAppender"/>
+        </Logger>
+
+        <!-- 业务日志 -->
+        <Logger name="BUSINESS" level="INFO" additivity="false">
+            <AppenderRef ref="BusinessAppender"/>
+        </Logger>
+
+        <!-- 安全日志 -->
+        <Logger name="SECURITY" level="WARN" additivity="false">
+            <AppenderRef ref="SecurityAppender"/>
+        </Logger>
+
+        <!-- Netty日志级别 -->
+        <Logger name="io.netty" level="WARN"/>
+
+        <!-- Spring日志级别 -->
+        <Logger name="org.springframework" level="INFO"/>
+
+        <!-- MongoDB日志级别 -->
+        <Logger name="org.mongodb" level="WARN"/>
+
+        <!-- 根日志配置 -->
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="AsyncFile"/>
+        </Root>
+    </Loggers>
+</Configuration>

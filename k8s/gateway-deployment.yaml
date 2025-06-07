@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knight-gateway
+  namespace: knight-game
+  labels:
+    app: knight-gateway
+    version: v1.0.0
+    author: lx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: knight-gateway
+  template:
+    metadata:
+      labels:
+        app: knight-gateway
+        version: v1.0.0
+    spec:
+      containers:
+      - name: gateway
+        image: knight/gateway:1.0.0
+        ports:
+        - containerPort: 8080
+          name: tcp
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "gateway"
+        - name: JAVA_OPTS
+          value: "-Xms2g -Xmx4g -XX:+UseG1GC"
+        - name: SERVER_TYPE
+          value: "gateway"
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "1000m"
+          limits:
+            memory: "6Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: config-volume
+        configMap:
+          name: knight-config
+      - name: logs-volume
+        emptyDir: {}
+      nodeSelector:
+        node-type: game-server
+      tolerations:
+      - key: "game-server"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: knight-gateway-service
+  namespace: knight-game
+  labels:
+    app: knight-gateway
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: tcp
+  selector:
+    app: knight-gateway
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: knight-gateway-hpa
+  namespace: knight-game
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: knight-gateway
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

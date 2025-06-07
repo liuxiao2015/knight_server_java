@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knight-logic
+  namespace: knight-game
+  labels:
+    app: knight-logic
+    version: v1.0.0
+    author: lx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: knight-logic
+  template:
+    metadata:
+      labels:
+        app: knight-logic
+        version: v1.0.0
+    spec:
+      containers:
+      - name: logic
+        image: knight/logic:1.0.0
+        ports:
+        - containerPort: 9001
+          name: tcp
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "logic"
+        - name: JAVA_OPTS
+          value: "-Xms4g -Xmx8g -XX:+UseG1GC"
+        - name: SERVER_TYPE
+          value: "logic"
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: knight-secrets
+              key: mongodb-uri
+        - name: REDIS_HOST
+          value: "knight-redis-service"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: knight-secrets
+              key: redis-password
+        resources:
+          requests:
+            memory: "6Gi"
+            cpu: "2000m"
+          limits:
+            memory: "10Gi"
+            cpu: "4000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9001
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9001
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: config-volume
+        configMap:
+          name: knight-config
+      - name: logs-volume
+        emptyDir: {}
+      nodeSelector:
+        node-type: game-server
+      tolerations:
+      - key: "game-server"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: knight-logic-service
+  namespace: knight-game
+  labels:
+    app: knight-logic
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9001
+    targetPort: 9001
+    protocol: TCP
+    name: tcp
+  selector:
+    app: knight-logic
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: knight-logic-hpa
+  namespace: knight-game
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: knight-logic
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85
